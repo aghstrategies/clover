@@ -99,7 +99,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       'user_name' => 'Merchant Name',
       'password' => 'Web API Key',
       'signature' => 'Merchant Site Key',
-      'subject' => 'Merchant Site ID',
+      //'subject' => 'Merchant Site ID',
     );
     foreach ($credFields as $name => $label) {
       if (empty($this->_paymentProcessor[$name])) {
@@ -120,9 +120,8 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
   * @return array
   */
   protected function getCreditCardFormFields() {
-    //we should only need payment token. Other fields come via iframe
+    //we should only need payment token from the buildForm. Other fields come via iframe
     return [
-      'payment_token'
     ];
     /*return array(
       'credit_card_type',
@@ -140,6 +139,37 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
    * @param \CRM_Core_Form $form
    */
   public function buildForm(&$form) {
+    //@TODO change this - testing with static value
+    $merchantUrl = 'https://boltgw-uat.cardconnect.com/itoke/ajax-tokenizer.html';
+    $params = [
+      'useexpiry=true',
+      'usecvv=true',
+      'tokenizewheninactive=true',
+      'inactivityto=500'
+    ];
+    $sendParams = '?' . implode('&', $params);
+    $form->assign('merchantUrl', $merchantUrl . $sendParams);
+    //add clover iframe
+    $templatePath = \Civi::resources()->getPath(E::LONG_NAME, "templates/clover_iframe.tpl");
+    var_dump($templatePath);
+    //die();
+    CRM_Core_Region::instance('billing-block')->add([
+      'template' => "{$templatePath}"
+    ]);
+    /*$form->add(
+      'static',
+      'clover_iframe',
+
+    // );*
+    //add hidden field to receive payment token
+    $form->add(
+      'hidden',
+      'clover_payment_token',
+    );
+    //add our catcher for the payment token
+    CRM_Core_Region::instance('billing-block')->add([
+      'scriptUrl' => \Civi::resources()->getUrl(E::LONG_NAME, "js/civicrm_clover.js"),
+    ]);
     // Don't use \Civi::resources()->addScriptFile etc as they often don't work on AJAX loaded forms (eg. participant backend registration)
     /*\Civi::resources()->addVars('tsys', [
       'allApiKeys' => CRM_Core_Payment_Tsys::getAllTsysPaymentProcessors(),
