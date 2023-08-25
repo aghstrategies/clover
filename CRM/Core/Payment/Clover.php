@@ -120,17 +120,10 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
   * @return array
   */
   protected function getCreditCardFormFields() {
-    //we should only need payment token from the buildForm. Other fields come via iframe
+    //we should only need payment token. Other fields come via iframe
     return [
+      'payment_token'
     ];
-    /*return array(
-      'credit_card_type',
-      'credit_card_number',
-      'cvv2',
-      'credit_card_exp_date',
-      // ADD PAYMENT TOKEN
-      'payment_token',
-    );*/
   }
 
   /**
@@ -145,27 +138,16 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       'useexpiry=true',
       'usecvv=true',
       'tokenizewheninactive=true',
-      'inactivityto=500'
+      'inactivityto=500',
+      'tokenpropname=clovertoken'
     ];
     $sendParams = '?' . implode('&', $params);
     $form->assign('merchantUrl', $merchantUrl . $sendParams);
     //add clover iframe
     $templatePath = \Civi::resources()->getPath(E::LONG_NAME, "templates/clover_iframe.tpl");
-    var_dump($templatePath);
-    //die();
     CRM_Core_Region::instance('billing-block')->add([
       'template' => "{$templatePath}"
     ]);
-    /*$form->add(
-      'static',
-      'clover_iframe',
-
-    // );*
-    //add hidden field to receive payment token
-    $form->add(
-      'hidden',
-      'clover_payment_token',
-    );
     //add our catcher for the payment token
     CRM_Core_Region::instance('billing-block')->add([
       'scriptUrl' => \Civi::resources()->getUrl(E::LONG_NAME, "js/civicrm_clover.js"),
