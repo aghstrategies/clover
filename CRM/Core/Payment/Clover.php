@@ -119,11 +119,9 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
   *
   * @return array
   */
-  protected function getCreditCardFormFields() {
-    //we should only need payment token. Other fields come via iframe
-    return [
-      'payment_token'
-    ];
+  public function getPaymentFormFields() {
+    //stop cc fields, clover iframe will provide
+    return [];
   }
 
   /**
@@ -132,8 +130,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
    * @param \CRM_Core_Form $form
    */
   public function buildForm(&$form) {
-    //@TODO change this - testing with static value
-    $merchantUrl = 'https://boltgw-uat.cardconnect.com/itoke/ajax-tokenizer.html';
+    $merchantUrl = $form->_paymentProcessor['url_site'];
     $params = [
       'useexpiry=true',
       'usecvv=true',
@@ -144,15 +141,249 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
     $sendParams = '?' . implode('&', $params);
     $form->assign('merchantUrl', $merchantUrl . $sendParams);
     //add clover iframe
-    $templatePath = \Civi::resources()->getPath(E::LONG_NAME, "templates/clover_iframe.tpl");
+    $templatePath = \Civi::resources()->getPath(E::LONG_NAME, "templates");
     CRM_Core_Region::instance('billing-block')->add([
-      'template' => "{$templatePath}"
+      'template' => $templatePath . 'clover_iframe.tpl'
     ]);
     // Don't use \Civi::resources()->addScriptFile etc as they often don't work on AJAX loaded forms (eg. participant backend registration)
-    //add our catcher for the payment token
+    //add our catcher for the payment token from clover
     CRM_Core_Region::instance('billing-block')->add([
       'scriptUrl' => \Civi::resources()->getUrl(E::LONG_NAME, "js/civicrm_clover.js"),
     ]);
+    //add our field to catch the token
+    $form->add('hidden', 'clover_token');
+  }
+
+  /**
+   * Process payment
+   *
+   * @param array $params
+   *   Assoc array of input parameters for this transaction.
+   *
+   * @param string $component
+   *
+   * @return array
+   *   Result array
+   *
+   * @throws \Civi\Payment\Exception\PaymentProcessorException
+   */
+  public function doPayment(&$params, $component = 'contribute') {
+    //if amount is zero skip clover and record a completed payment
+    if ($params['amount'] == 0) {
+      $completedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Completed');
+      $params['payment_status_id'] = $params['contribution_status_id'] = $completedStatusId;
+      return $params;
+    }
+    //generate an invoice # if we don't get one
+    if (empty($params['invoice_number'])) {
+      $params['invoice_number'] = rand(1, 9999999);
+    }
+
+    // Make sure using us dollars as the currency
+    //@TODO check if clover actually supports other currencies
+    $currency = self::checkCurrencyIsUSD($params);
+
+    // Get proper entry URL for returning on error.
+    if (!(array_key_exists('qfKey', $params))) {
+      // Probably not called from a civicrm form (e.g. webform) -
+      // will return error object to original api caller.
+      $params['clover_error_url'] = NULL;
+    }
+    else {
+      $qfKey = $params['qfKey'];
+      $parsed_url = parse_url($params['entryURL']);
+      $url_path = substr($parsed_url['path'], 1);
+      $params['clover_error_url'] = CRM_Utils_System::url($url_path,
+      $parsed_url['query'] . "&_qf_Main_display=1&qfKey={$qfKey}", FALSE, NULL, FALSE);
+    }
+
+    //IF currency is not USD throw error and quit
+    //@TODO check if clover actually supports other currencies
+    if ($currency == FALSE) {
+      $errorMessage = self::handleErrorNotification('Clover only works with USD, Contribution not processed', $params['clover_error_url']);
+      throw new \Civi\Payment\Exception\PaymentProcessorException(' Failed to create Clover Charge ' . $errorMessage);
+    }
+
+    // Get clover credentials ($params come from a form)
+    if (!empty($params['payment_processor_id'])) {
+      $cloverCreds = CRM_Core_Payment_Clover::getPaymentProcessorSettings($params['payment_processor_id']);
+    }
+
+    // Get clover credentials ($params come from a Contribution.transact api call)
+    if (!empty($params['payment_processor'])) {
+      $cloverCreds = CRM_Core_Payment_Clover::getPaymentProcessorSettings($params['payment_processor']);
+    }
+
+    // Throw an error if no credentials found
+    if (empty($cloverCreds)) {
+      $errorMessage = self::handleErrorNotification('No valid Clover payment processor credentials found', $params['clover_error_url']);
+      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Clover Charge: ' . $errorMessage);
+    }
+    if (!empty($params['payment_token']) && $params['payment_token'] != "Authorization token") {
+      //Use payment token to run the transaction
+      $token = $params['payment_token'];
+
+      // Make transaction
+      //@TODO add Clover API call here to actually make the transaction
+      $makeTransaction = 'responseFromCloverCall';
+    }
+    else {
+      $errorMessage = self::handleErrorNotification('No Payment Token', $params['clover_error_url']);
+      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Clover Charge: ' . $errorMessage);
+    }
+    $params = self::processTransaction($makeTransaction, $params, $cloverCreds);
+    return $params;
+  }
+
+  /**
+   * After making the Clover API call, deal with the response
+   * @param  object $makeTransaction response from clover
+   * @param  array $params           payment params
+   * @param  array $tsysCreds        clover Credentials
+   * @return array $params           payment params updated to inculde relevant info from clover
+   */
+  public static function processTransaction($makeTransaction, &$params, $cloverCreds) {
+    $failedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Failed');
+
+    // If transaction approved
+    //@TODO update with actual clover positive condition
+    if ($makeTransaction == 'cloverYesResponse') {
+      /*$params = self::processResponseFromTsys($params, $makeTransaction->Body->SaleResponse->SaleResult, 'sale');
+      // Successful contribution update the status and get the rest of the info from Tsys Response
+      $completedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Completed');
+      $params['payment_status_id'] = $completedStatusId;
+
+      // Check if the token has been saved to the database
+      $previousTransactionToken = (string) $makeTransaction->Body->SaleResponse->SaleResult->Token;
+      $savedTokens = self::checkForSavedVaultToken($params['payment_processor_id'], $previousTransactionToken);
+
+      // If transaction is recurring AND there is not an existing vault token saved, create a boarded card and save it
+      if (CRM_Utils_Array::value('is_recur', $params)
+      && $savedTokens == 0
+      && !empty($params['contributionRecurID'])) {
+        $paymentTokenId = CRM_Tsys_Recur::boardCard(
+          $params['contributionRecurID'],
+          $previousTransactionToken,
+          $tsysCreds,
+          $params['contactID'],
+          $params['payment_processor_id']
+        );
+        $params['payment_token_id'] = $paymentTokenId;
+      }
+      return $params;*/
+    }
+    // If transaction fails
+    else {
+      $params['contribution_status_id'] = $failedStatusId;
+      $errorMessage = 'Clover rejected card ';
+      if (!empty($params['error_message'])) {
+        $errorMessage .= $params['error_message'];
+      }
+      //if (isset($makeTransaction->Body->SaleResponse->SaleResult->ErrorMessage)) {
+        //$errorMessage .= $makeTransaction->Body->SaleResponse->SaleResult->ErrorMessage;
+      //}
+      // If its a unit test return the params
+      if (isset($params['unit_test']) && $params['unit_test'] == 1) {
+        return $params;
+      }
+      $errorMessage = self::handleErrorNotification($errorMessage, NULL, $makeTransaction);
+      throw new \Civi\Payment\Exception\PaymentProcessorException('Failed to create Clover Charge: ' . $errorMessage);
+    }
+  }
+
+  /**
+   * Check that the Currency is USD
+   * @param array $params  contribution params
+   * @return boolean       if Currency is USD
+   */
+  public function checkCurrencyIsUSD(&$params) {
+    // when coming from a contribution form
+    if (!empty($params['currencyID']) && $params['currencyID'] == 'USD') {
+      return TRUE;
+    }
+
+    // when coming from a contribution.transact api call
+    if (!empty($params['currency']) && $params['currency'] == 'USD') {
+      return TRUE;
+    }
+
+    $currency = FALSE;
+    try {
+      $defaultCurrency = civicrm_api3('Setting', 'get', [
+        'sequential' => 1,
+        'return' => ["defaultCurrency"],
+        'defaultCurrency' => "USD",
+      ]);
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      $error = $e->getMessage();
+      CRM_Core_Error::debug_log_message(E::ts('API Error %1', array(
+        'domain' => 'com.aghstrategies.tsys',
+        1 => $error,
+      )));
+    }
+    // look up the default currency, if its usd set this transaction to use us dollars
+    if (!empty($defaultCurrency['values'][0]['defaultCurrency'])
+    && $defaultCurrency['values'][0]['defaultCurrency'] == 'USD'
+    && empty($params['currencyID'])
+    && empty($params['currency'])) {
+      $currency = TRUE;
+    }
+    return $currency;
+  }
+
+  /**
+   * Handle an error and notify the user
+   * @param  string $errorMessage Error Message to be displayed to user
+   * @param  string $bounceURL    Bounce URL
+   * @param  string $makeTransaction response from Clover
+   * @return string  Error Message (or statusbounce if URL is specified)
+   */
+  public static function handleErrorNotification($errorMessage, $bounceURL = NULL, $makeTransaction = []) {
+    Civi::log()->debug('Clover Payment Error: ' . $errorMessage);
+    if (!empty($makeTransaction)) {
+      CRM_Core_Error::debug_var('makeTransaction', $makeTransaction);
+    }
+    if ($bounceURL) {
+      CRM_Core_Error::statusBounce($errorMessage, $bounceURL, 'Payment Error');
+    }
+    return $errorMessage;
+  }
+
+  /**
+   * Given a payment processor id, return details including publishable key
+   *
+   * @param int $paymentProcessorId
+   * @return array
+   */
+  public static function getPaymentProcessorSettings($paymentProcessorId) {
+    $fields = ["signature", "subject", "user_name", "is_test"];
+    try {
+      $paymentProcessorDetails = civicrm_api4('PaymentProcessor', 'get', [
+        'select' => $fields,
+        'where' => [
+          ['id', '=', $paymentProcessorId],
+        ],
+        'checkPermissions' => FALSE,
+      ]);
+    }
+    catch (API_Exception $e) {
+      $error = $e->getMessage();
+      CRM_Core_Error::debug_log_message(E::ts('API Error %1', array(
+        'domain' => 'clover',
+        1 => $error,
+      )));
+      return [];
+    }
+
+    // Throw an error if credential not found
+    foreach ($fields as $key => $field) {
+      if (!isset($paymentProcessorDetails[0][$field])) {
+        CRM_Core_Error::statusBounce(E::ts('Could not find valid Clover Payment Processor credentials'));
+        Civi::log()->debug("Clover Credential $field not found.");
+      }
+    }
+    return $paymentProcessorDetails[0];
   }
 
 }

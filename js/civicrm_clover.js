@@ -5,6 +5,6 @@
 CRM.$(function ($) {
   window.addEventListener('message', function(event) {
         var token = JSON.parse(event.data);
-        $('#payment_token').val(token.clovertoken);
+        $('input[name="clover_token"]').val(token.clovertoken);
     }, false);
 });
