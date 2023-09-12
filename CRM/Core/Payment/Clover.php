@@ -262,7 +262,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
     //@TODO update with actual clover positive condition
     if ($cloverResponse == 'Approval') {
       //$params = self::processResponseFromTsys($params, $makeTransaction->Body->SaleResponse->SaleResult, 'sale');
-      // Successful contribution update the status and get the rest of the info from Tsys Response
+      // Successful contribution update the status and get the rest of the info from Response
       $completedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Completed');
       $params['payment_status_id'] = $completedStatusId;
 
@@ -300,6 +300,8 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       if (!empty($params['error_message'])) {
         $errorMessage .= $params['error_message'];
       }
+      //@TODO what do we do with "Partial Approval"? I'm not even really sure what that means or when it happens,
+      //but it is a possible response.
       if ($cloverResponse != 'Approved') {
         $errorMessage .= $cloverResponse;
       }
