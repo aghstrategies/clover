@@ -44,19 +44,19 @@ return [
       //  when adding this processor, labelled
       // api key which will save to civicrm_payment_processor.user_name
       // on save
-      'user_name_label' => 'apiKey',
+      'user_name_label' => 'Username',
       // as per user_name_label, but saves to password
-      'password_label' => 'secret',
+      'password_label' => 'Password',
       // as per user_name_label, but saves to signature
-      'signature_label' => 'signature',
+      'signature_label' => 'MerchantID',
       // prefix of CRM_Core is implicit so the class ie CRM_Core_Payment_MyProcessor
       'class_name' => 'Payment_Clover',
       // Any urls you might need stored for the user to be redirect to, for example.
       // Note it is quite common these days to hard code the urls in the processors
       // as they are not necessarily seen as configuration. But, if you enter
       // something here it will be the default for data entry.
-      'url_site_default' => 'https://boltgw-uat.cardconnect.com/cardconnect/rest',
-      'url_api_default' => 'https://boltgw-uat.cardconnect.com/cardconnect/rest',
+      'url_site_default' => 'https://boltgw-uat.cardconnect.com/itoke/ajax-tokenizer.html',
+      'url_api_default' => 'https://yoursite.cardconnect.com/cardconnect/rest',
       // this is a deprecated concept and these docs recommend you override
       // anything that references it. However, if you redirect the user offsite
       // enter 4 and if not enter 1 here.
