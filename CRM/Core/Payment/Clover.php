@@ -141,7 +141,11 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       'usecvv=true',
       'tokenizewheninactive=true',
       'inactivityto=500',
-      'tokenpropname=clovertoken'
+      'tokenpropname=clovertoken',
+      'invalidcreditcardevent=true',
+      'invalidcvvevent=true',
+      'invalidexpiryevent=true',
+      'cardnumbernumericonly=true',
     ];
     $sendParams = '?' . implode('&', $params);
     $form->assign('merchantUrl', $merchantUrl . $sendParams);
