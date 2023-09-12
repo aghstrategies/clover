@@ -267,10 +267,18 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       $params['payment_status_id'] = $completedStatusId;
 
       // Check if the token has been saved to the database
-      $previousTransactionToken = (string) $makeTransaction->Body->SaleResponse->SaleResult->Token;
-      $savedTokens = self::checkForSavedVaultToken($params['payment_processor_id'], $previousTransactionToken);
+      //@TODO i'm confused about this statement from TSYS. the token should still be in $params['clover_token']
+      //maybe that was just a TSYS thing
+      //$previousTransactionToken = (string) $makeTransaction->Body->SaleResponse->SaleResult->Token;
+
+      //@TODO need to add the checkForSavedVaultToken
+      $savedTokens = self::checkForSavedVaultToken($params['payment_processor_id'], $params['clover_token']);
 
       // If transaction is recurring AND there is not an existing vault token saved, create a boarded card and save it
+
+      //@TODO discuss... I don't think this should be here.
+      //I think this should be at doPayment, because we need to pass different type of authorization
+      //to have properly authorized for recurring transactions.
       if (CRM_Utils_Array::value('is_recur', $params)
       && $savedTokens == 0
       && !empty($params['contributionRecurID'])) {

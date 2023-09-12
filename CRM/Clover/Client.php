@@ -20,7 +20,7 @@ class CRM_Clover_Client {
     $this->client = new \GuzzleHttp\Client([
         // Base URI is used with relative requests
         'base_uri' => $this->baseUrl,
-        // You can set any number of default request options.
+        //@TODO is this a relevant setting?
         'timeout'  => 2.0,
     ]);
   }
