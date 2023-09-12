@@ -42,8 +42,11 @@ class CRM_Clover_Client {
       'postal' => $params['billing_postal_code-5'],
       //@TODO testing makes this seem not required with token. validate for prod.
       //'cvv2' => '456',
+      //requested by documentation for card not present
       'ecomind' => 'E',
+      //@TODO eventually we should accept other currencies
       'currency' => 'USD',
+      //capture right away, omit this to authorize only
       'capture' => 'y'
     ];
     //transform state and country to 2-char abbreviations
@@ -54,6 +57,7 @@ class CRM_Clover_Client {
       ->setLimit(1)
       ->execute();
     if (count($stateProvinces) == 1 && strlen($stateProvinces[0] == 2)) {
+      //send state if it's valid
       $json['region'] = $stateProvinces[0];
     }
     $countries = \Civi\Api4\Country::get(FALSE)
@@ -62,6 +66,7 @@ class CRM_Clover_Client {
       ->setLimit(1)
       ->execute();
     if (count($countries) == 1 && strlen($countries[0] == 2)) {
+      //send country if it's valid
       $json['country'] = $countries[0];
     }
 

@@ -240,7 +240,6 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       // Make transaction
       $client = new CRM_Clover_Client($cloverCreds);
       $client->authorizeAndCapture($params);
-
       $cloverResponse = $client->response->resptext;
 
     }
@@ -263,7 +262,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
     $failedStatusId = CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Failed');
 
     // If transaction approved
-    //@TODO update with actual clover positive condition
+    //@TODO what do we do with "Partially Approved"? I'm not sure when this could happen but it's a valid response
     if ($cloverResponse == 'Approval') {
       //$params = self::processResponseFromTsys($params, $makeTransaction->Body->SaleResponse->SaleResult, 'sale');
       // Successful contribution update the status and get the rest of the info from Response
@@ -275,8 +274,8 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       //maybe that was just a TSYS thing
       //$previousTransactionToken = (string) $makeTransaction->Body->SaleResponse->SaleResult->Token;
 
-      //@TODO need to add the checkForSavedVaultToken
-      $savedTokens = self::checkForSavedVaultToken($params['payment_processor_id'], $params['clover_token']);
+      //@TODO need to add the checkForSavedToken
+      $savedTokens = self::checkForSavedToken($params['payment_processor_id'], $params['clover_token']);
 
       // If transaction is recurring AND there is not an existing vault token saved, create a boarded card and save it
 
@@ -411,6 +410,34 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       }
     }
     return $paymentProcessorDetails[0];
+  }
+
+  /**
+   * Check if the vault token has ben saved to the database already
+   * @param  int $paymentProcessor payment processor id
+   * @param  string $token       token to check for
+   * @return int   number of tokens saved to the database
+   */
+  public static function checkForSavedToken($paymentProcessor, $token) {
+    $paymentTokenCount = 0;
+    try {
+      $paymentTokens = \Civi\Api4\PaymentToken::get(FALSE)
+        ->addWhere('token', '=', $token)
+        ->addWhere('payment_processor_id', '=', $paymentProcessor)
+        ->execute();
+    }
+    catch (API_Exception $e) {
+      $error = $e->getMessage();
+      CRM_Core_Error::debug_log_message(E::ts('API Error %1', [
+        'domain' => 'clover',
+        1 => $error,
+      ]));
+    }
+    if ($paymentTokens) {
+      $paymentTokenCount = count($paymentTokens);
+    }
+
+    return $paymentTokenCount;
   }
 
 }
