@@ -124,6 +124,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
     //@TODO test if we need cvv2 and exp date for the api call before we add
     //MAYBE giving them to the token is enough
     return [
+      'credit_card_type'
       //'cvv2',
       //'credit_card_exp_date'
     ];
@@ -136,6 +137,29 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
    */
   public function buildForm(&$form) {
     $merchantUrl = $form->_paymentProcessor['url_site'];
+    //@TODO we should try to dynamically get css from the site
+    //if we can match the site theme, it looks less jank and sketchy to a user
+    $css = '
+      #tokenform {
+        font-family:Source Sans Pro, Helvetica, sans serif;
+        font-size: 18px;
+      }
+      input {
+        margin: 5px;
+        height: 1.8em;
+        border-radius: 3px;
+      }
+      #ccnumfield {
+        width: 80%;
+      }
+      #ccexpirymonth {
+        width: 50%;
+      }
+      select {
+        margin: 5px;
+        height: 1.8em;
+        border-radius: 3px;
+      }';
     $params = [
       'useexpiry=true',
       'usecvv=true',
@@ -146,6 +170,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       'invalidcvvevent=true',
       'invalidexpiryevent=true',
       'cardnumbernumericonly=true',
+      'css=' . urlencode($css),
     ];
     $sendParams = '?' . implode('&', $params);
     $form->assign('merchantUrl', $merchantUrl . $sendParams);

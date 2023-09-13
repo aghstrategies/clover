@@ -11,5 +11,7 @@ CRM.$(function ($) {
         }
     }, false);
 
-    $('#cloveriframe').insertBefore('#billing-payment-block');
+    $('#cloveriframe').insertAfter('.credit_card_type-section');
+    //change iframe height to match our styling
+    $('#tokenFrame').css('height', '12em');
 });
