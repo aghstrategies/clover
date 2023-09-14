@@ -55,8 +55,8 @@ return [
       // Note it is quite common these days to hard code the urls in the processors
       // as they are not necessarily seen as configuration. But, if you enter
       // something here it will be the default for data entry.
-      'url_site_default' => 'https://boltgw-uat.cardconnect.com/itoke/ajax-tokenizer.html',
-      'url_api_default' => 'https://yoursite.cardconnect.com/cardconnect/rest',
+      'url_site_default' => 'https://yoursite.cardconnect.com/itoke/ajax-tokenizer.html',
+      'url_api_default' => 'https://yoursite.cardconnect.com/cardconnect/rest/auth',
       // this is a deprecated concept and these docs recommend you override
       // anything that references it. However, if you redirect the user offsite
       // enter 4 and if not enter 1 here.
@@ -65,6 +65,7 @@ return [
       // become an option group at some point but also note that it's mostly
       // or possibly only used from functions that this documentation recommends
       // you override (eg. `getPaymentTypeLabel`)
+      'is_recur' => 1,
       'payment_type' => 1,
     ],
   ],

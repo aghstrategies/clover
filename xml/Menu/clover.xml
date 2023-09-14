@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/clover/refund</path>
+    <page_callback>CRM_Clover_Form_Refund</page_callback>
+    <title>Credit Card Actions</title>
+    <access_arguments>edit contributions</access_arguments>
+  </item>
+</menu>
