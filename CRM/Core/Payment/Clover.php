@@ -249,9 +249,6 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
       //clover collects amount information in currency MINOR units
       $params['amount'] = Money::of($params['amount'], $params['currency'], new DefaultContext(), RoundingMode::CEILING)->getAmount();
 
-      //default for a one-off user-initiated transaction card-not-present
-      $params['ecomind'] = 'E';
-      $params['capture'] = 'y';
       // If transaction is recurring AND there is not an existing vault token saved, create a boarded card and save it
       // authorize a recurring transaction
       // if it gets authorized, save the payment token for next time
@@ -272,7 +269,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
         $params['cofscheduled'] = 'N';
 
       if ($savedTokens == 0) {
-
+          $params['capture'] = "n";
           //if there isn't one, create payment token and update recurring contribution entity with token
           $recurringToken = $client->authorize($params);
 
@@ -285,6 +282,10 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
           $paymentTokenId = self::createPaymentToken($params);
         }
       }
+  
+      //default for a one-off user-initiated transaction card-not-present
+      $params['ecomind'] = 'E';
+      $params['capture'] = 'y';
 
       // Make transaction
       $client->authorize($params);
