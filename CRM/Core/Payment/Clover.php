@@ -443,7 +443,7 @@ class CRM_Core_Payment_Clover extends CRM_Core_Payment {
    * @return array
    * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
-  public function getCloverCreds($params) {
+  public static function getCloverCreds($params) {
     $cloverCreds = [];
     // Get clover credentials ($params come from a form)
     if (!empty($params['payment_processor_id'])) {
